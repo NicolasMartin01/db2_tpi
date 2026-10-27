@@ -1,4 +1,3 @@
-// Aplica los validadores $jsonSchema del TPI sobre las colecciones (idempotente).
 import mongoose from 'mongoose';
 import { env } from '../src/config/env.js';
 
@@ -30,14 +29,35 @@ const schemas = {
     }
 };
 
-await mongoose.connect(env.mongoUri, { dbName: env.dbName });
-const db = mongoose.connection.db;
-const existentes = (await db.listCollections().toArray()).map((c) => c.name);
+try {
+    await mongoose.connect(env.mongoUri, { dbName: env.dbName });
+    const db = mongoose.connection.db;
+    const existentes = (await db.listCollections().toArray()).map((c) => c.name);
 
-for (const [nombre, schema] of Object.entries(schemas)) {
-    const validator = { $jsonSchema: { bsonType: 'object', ...schema } };
-    if (existentes.includes(nombre)) await db.command({ collMod: nombre, validator });
-    else await db.createCollection(nombre, { validator });
-    console.log(`Validador aplicado: ${nombre}`);
+    for (const [nombre, schema] of Object.entries(schemas)) {
+        const validator = { $jsonSchema: { bsonType: 'object', ...schema } };
+        if (existentes.includes(nombre)) {
+            await db.command({ collMod: nombre, validator });
+            console.log(`Validador actualizado (collMod): ${nombre}`);
+        } else {
+            await db.createCollection(nombre, { validator });
+            console.log(`Colección creada con validador: ${nombre}`);
+        }
+    }
+
+    await db.collection('socios').createIndex({ dni: 1 }, { unique: true });
+    await db.collection('reservas').createIndex(
+        { socioId: 1, claseId: 1 },
+        { unique: true, partialFilterExpression: { activo: true } }
+    );
+    console.log('Índices aplicados: socios.dni (único), reservas.socioId+claseId (único parcial)');
+} catch (error) {
+    if (error.codeName === 'Unauthorized') {
+        console.error('ERROR: el usuario no tiene permisos suficientes. Ejecutar con un usuario con rol dbAdmin.');
+    } else {
+        console.error('ERROR al aplicar los validadores:', error.message);
+    }
+    process.exitCode = 1;
+} finally {
+    await mongoose.connection.close();
 }
-await mongoose.connection.close();

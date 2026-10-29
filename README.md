@@ -28,10 +28,6 @@ npm run dev              # http://localhost:3000
 `npm run seed` inserta 10 socios, 6 clases y 25 reservas (con un socio y una clase dados de baja, y 5 reservas canceladas).
 Si las colecciones ya tienen datos aborta; usar `npm run seed -- --reset` para vaciarlas y volver a cargar.
 
-## Decisiones
-- `timestamps: true` → `createdAt`/`updatedAt` reemplazan `fechaAlta` y `fechaReserva`.
-- `deletedAt` reemplaza a `fechaBaja`.
-- `activo`, `deletedAt`, `createdAt`, `updatedAt` no se pueden escribir desde el body.
+## Reglas de negocio
+- Socios (POST, PUT y PATCH): no se puede insertar un socio con un DNI que ya esté registrado en la base.
 - Reservas (POST, PUT y PATCH): el socio y la clase deben existir y estar activos; un socio no puede tener dos reservas CONFIRMADAS en la misma clase y las confirmadas no pueden superar `cupoMaximo` (409 en ambos casos). Las canceladas o dadas de baja no ocupan lugar, así que se puede volver a reservar tras cancelar.
-- `cupoMaximo` se guarda como `Int32` para cumplir `bsonType: "int"`.
-- Subcampos asumidos: `membresia {plan, precio, fechaVencimiento}`, `instructor {nombre, apellido, email}`.
